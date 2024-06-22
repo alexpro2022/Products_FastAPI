@@ -1,0 +1,15 @@
+colors = [
+    {"name": "бежевый", "html_code": "F3E6D2"},
+    {"name": "белый", "html_code": "FFFFFF"},
+    {"name": "чёрный", "html_code": "2C2828"},
+    {"name": "голубой", "html_code": "A1D1FF"},
+    {"name": "жёлтый", "html_code": "FFD900"},
+    {"name": "зелёный", "html_code": "13AC3A"},
+    {"name": "коричневый", "html_code": "8C500A"},
+    {"name": "красный", "html_code": "FF0000"},
+    {"name": "оранжевый", "html_code": "FF8A00"},
+    {"name": "розовый", "html_code": "FFE5E1"},
+    {"name": "серый", "html_code": "AFAFAF"},
+    {"name": "синий", "html_code": "0500FF"},
+    {"name": "фиолетовый", "html_code": "8B00FF"},
+]

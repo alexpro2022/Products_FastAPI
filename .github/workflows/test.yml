@@ -1,0 +1,51 @@
+name: Run pytest
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+
+  lint:
+    name: Check the code with python linters
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - "5432:5432"
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+
+    env:
+      TEST_DATABASE_HOST: localhost
+      TEST_DATABASE_USERNAME: postgres
+      TEST_DATABASE_PASSWORD: postgres
+      TEST_DATABASE_PORT: 5432
+      TEST_DATABASE_NAME: postgres
+      TEST_REDIS_DB_NAME: redis
+      TEST_REDIS_HOST: localhost
+      TEST_REDIS_PORT: 6379
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python -
+          poetry config virtualenvs.in-project true
+          poetry install
+      - name: Create schema in database
+        run: |
+          PGPASSWORD=postgres psql -U postgres -h 127.0.0.1 -p ${{ job.services.postgres.ports[5432] }} -d postgres -tc "CREATE SCHEMA IF NOT EXISTS products;"
+      - name: Run pytest
+        run: poetry run pytest

@@ -1,0 +1,138 @@
+name: Push Docker image to Docker Regestry and deploy workflow
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - "5432:5432"
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+    env:
+      TEST_DATABASE_HOST: localhost
+      TEST_DATABASE_USERNAME: postgres
+      TEST_DATABASE_PASSWORD: postgres
+      TEST_DATABASE_PORT: 5432
+      TEST_DATABASE_NAME: postgres
+      TEST_REDIS_DB_NAME: redis
+      TEST_REDIS_HOST: localhost
+      TEST_REDIS_PORT: 6379
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python -
+          poetry config virtualenvs.in-project true
+          poetry install
+      - name: Create schema in database
+        run: |
+          PGPASSWORD=postgres psql -U postgres -h 127.0.0.1 -p ${{ job.services.postgres.ports[5432] }} -d postgres -tc "CREATE SCHEMA IF NOT EXISTS products;"
+      - name: Run pytest
+        run: poetry run pytest
+
+  build_and_push_to_docker_regestry:
+    needs: test
+    name: Push Docker image to Docker Regestry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    if:
+      contains('
+          refs/heads/main
+        ', github.ref)
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/products
+          tags: |
+            type=raw,value=latest
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: development
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}"
+            "POSTGRES_USERNAME=${{ secrets.POSTGRES_USERNAME }}"
+            "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}"
+            "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}"
+            "POSTGRES_DB_NAME=${{ secrets.POSTGRES_DB_NAME }}"
+            "POSTGRES_SCHEMA_NAME=${{ secrets.POSTGRES_SCHEMA_NAME }}"
+            "APP_DOCS_USERNAME=${{ secrets.APP_DOCS_USERNAME }}"
+            "APP_DOCS_PASSWORD=${{ secrets.APP_DOCS_PASSWORD }}"
+            "MQ_HOST=${{ secrets.MQ_HOST }}"
+            "MQ_USERNAME=${{ secrets.MQ_USERNAME }}"
+            "MQ_PASSWORD=${{ secrets.MQ_PASSWORD }}"
+            "MQ_PORT=${{ secrets.MQ_PORT }}"
+            "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}"
+            "REDIS_HOST=${{ secrets.REDIS_HOST }}"
+            "REDIS_PORT=${{ secrets.REDIS_PORT }}"
+            "USER_ADDRESS_URL=${{ secrets.USER_ADDRESS_URL }}"
+            "USER_PROFILE_URL=${{ secrets.USER_PROFILE_URL }}"
+            "CART_PRODUCTS=${{ secrets.CART_PRODUCTS }}"
+            "S3_URL=${{ secrets.S3_URL }}"
+            "S3_REGION=${{ secrets.S3_REGION }}"
+            "S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }}"
+            "S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }}"
+            "S3_BUCKET_PRIVATE=${{ secrets.S3_BUCKET_PRIVATE }}"
+            "S3_BUCKET_PUBLIC=${{ secrets.S3_BUCKET_PUBLIC }}"
+            "S3_LOCAL_FOLDER=${{ secrets.S3_LOCAL_FOLDER }}"
+            "ECOM_SELLER_CHECK_URL=${{ secrets.ECOM_SELLER_CHECK_URL }}"
+
+  deploy:
+      runs-on: ubuntu-latest
+      needs: build_and_push_to_docker_regestry
+      if: github.ref == 'refs/heads/main'
+      steps:
+      - id: change-image-name-case
+        uses: ASzc/change-string-case-action@v6
+        with:
+          string: ${{ env.IMAGE_NAME }}
+      - name: executing remote ssh commands to deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            docker stop products || true && docker rm products || true
+            docker image rmi ${{ env.REGISTRY }}/${{ steps.change-image-name-case.outputs.lowercase }}/products:latest  || true
+            export CR_PAT=${{ secrets.GITHUB_TOKEN }}
+            echo $CR_PAT | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            sudo docker image pull ${{ env.REGISTRY }}/${{ steps.change-image-name-case.outputs.lowercase }}/products:latest
+            sudo docker run --restart=always --log-opt max-size=15m --log-opt max-file=5 --hostname=products --network=ecom --name=products -p 127.0.0.1:5055:5050 -d ${{ env.REGISTRY }}/${{ steps.change-image-name-case.outputs.lowercase }}/products:latest

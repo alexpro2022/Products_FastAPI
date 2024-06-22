@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  products:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: products
+    restart: always
+    hostname: products
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.gitconfig:/root/.gitconfig
+      - .:/workspace:cached
+      - ./app/keys:/workspace/app/keys
+    env_file:
+      - .env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.verifier.rule=Host(`auth.${APP_SERVICE_HOSTNAME}`)"
+      - "traefik.http.routers.verifier.tls=true"
+      - "traefik.http.routers.verifier.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.verifier.entrypoints=https"
+      - "traefik.http.routers.verifier.service=verifier"
+      - "traefik.http.services.verifier.loadbalancer.server.port=5050"
+    ports:
+      - 127.0.0.1:5055:5050
+
+networks:
+  default:
+    name: ecom
+    external: true
