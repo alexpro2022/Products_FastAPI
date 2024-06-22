@@ -37,10 +37,10 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -49,8 +49,10 @@ jobs:
           curl -sSL https://install.python-poetry.org | python -
           poetry config virtualenvs.in-project true
           poetry install
-      - name: Create schema in database
+      - name: Install Dependencies
         run: |
-          PGPASSWORD=postgres psql -U postgres -h 127.0.0.1 -p ${{ job.services.postgres.ports[5432] }} -d postgres -tc "CREATE SCHEMA IF NOT EXISTS products;"
-      - name: Run pytest
-        run: poetry run pytest
+          python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+      - name: Run Tests
+        run: |
+          pytest --cov --cov-report=xml          
