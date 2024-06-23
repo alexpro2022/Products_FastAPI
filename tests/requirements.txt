@@ -1,7 +1,5 @@
-deepdiff
 faker
 httpx
 pytest
 pytest-asyncio
 pytest-cov
-olefile
