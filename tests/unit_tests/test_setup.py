@@ -4,7 +4,6 @@ from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2AuthorizationCodeBearer
 
 from app.api.setup import docs_basic_auth, get_oauth2_scheme
-from app.core.config import settings
 from tests.mocks import MockAuth
 from tests.utils import check_exception_info
 
