@@ -17,6 +17,8 @@ from tests.utils import get_image
 UUID_ID = uuid4()
 SELLER_ID = uuid4()
 S3_IMAGE = get_image(size=1)
+S3_BUCKET_PRIVATE = "48111b17-04a3c7f0-aaaa-bbbb-cccc-5294c1332fef"
+S3_BUCKET_PUBLIC = "48111b17-8a18978c-aaaa-bbbb-cccc-3d47d3e3cc72"
 
 
 def mocker(*args, **kwargs):
