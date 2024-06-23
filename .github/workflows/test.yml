@@ -48,15 +48,14 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install poetry
-        run: |
-          python -m pip install --no-cache-dir poetry==1.8.3 && \
-          poetry config virtualenvs.create false && \
-          poetry install --without dev --no-interaction --no-ansi && \
-          rm -rf $(poetry config cache-dir)/{cache,artifacts}
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+          python -m pip install --no-cache-dir poetry==1.8.3
+          poetry config virtualenvs.create false
+          poetry install --without dev --no-interaction --no-ansi 
+          rm -rf $(poetry config cache-dir)/{cache,artifacts}
           pip install -r tests/requirements.txt
       - name: Run Tests
         run: |
