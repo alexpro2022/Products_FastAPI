@@ -26,13 +26,14 @@ jobs:
           - 6379:6379
 
     env:
-      TEST_DATABASE_HOST: postgres
+      APP_IS_DEBUG: False
       TEST_DATABASE_USERNAME: postgres
-      TEST_DATABASE_PASSWORD: 123
+      TEST_DATABASE_PASSWORD: postgrespw
+      TEST_DATABASE_HOST: "0.0.0.0"
       TEST_DATABASE_PORT: 5432
       TEST_DATABASE_NAME: test
       # TEST_REDIS_DB_NAME: redis
-      TEST_REDIS_HOST: redis
+      TEST_REDIS_HOST: "0.0.0.0"
       TEST_REDIS_PORT: 6379
 
     steps:
@@ -56,4 +57,4 @@ jobs:
           pip install -r tests/requirements.txt
       - name: Run Tests
         run: |
-          pytest --cov --cov-config=tests/.coveragerc --cov-report=xml          
+          pytest -x --cov --cov-config=tests/.coveragerc --cov-report=xml          
