@@ -19,7 +19,7 @@ services:
     build:
       context: ../..
       dockerfile: tests/docker/test.Dockerfile
-    command: bash -c "pytest -x --cov --cov-config=tests/.coveragerc"  # tests/integration_tests/test_products_auth_endpoints.py::test_get_document_returns_obj"  # tests/fixtures/test_fixtures.py::test_environment"  #     tests/integration_tests/test_products_auth_endpoints.py::test_post_with_media"  # tests/fixtures/test_utils.py::test_base64"  # tests/fixtures/test_fixtures.py::test_get_product_create_data_fixture"  tests/unit_tests/schemas/test_validators.py::test_validate_returns_crated_obj"  # 
+    command: bash -c "pytest tests --cov --cov-config=tests/.coveragerc"  # tests/integration_tests/test_products_auth_endpoints.py::test_get_document_returns_obj"  # tests/fixtures/test_fixtures.py::test_environment"  #     tests/integration_tests/test_products_auth_endpoints.py::test_post_with_media"  # tests/fixtures/test_utils.py::test_base64"  # tests/fixtures/test_fixtures.py::test_get_product_create_data_fixture"  tests/unit_tests/schemas/test_validators.py::test_validate_returns_crated_obj"  # 
     depends_on:
       - db_test
     env_file:

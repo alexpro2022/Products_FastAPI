@@ -57,4 +57,4 @@ jobs:
           pip install -r tests/requirements.txt
       - name: Run Tests
         run: |
-          pytest -x --cov --cov-config=tests/.coveragerc --cov-report=xml          
+          pytest tests --cov --cov-config=tests/.coveragerc --cov-report=xml          
