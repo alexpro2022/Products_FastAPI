@@ -14,7 +14,7 @@ jobs:
       postgres:
         image: postgres:16
         ports:
-          - "5432:5432"
+          - 5432:5432
         env:
           POSTGRES_DB: github_actions
           POSTGRES_USER: postgres
@@ -23,15 +23,15 @@ jobs:
       redis:
         image: redis:latest
         ports:
-          - "6379:6379"
+          - 6379:6379
 
     env:
-      TEST_DATABASE_HOST: db_test
+      TEST_DATABASE_HOST: postgres
       TEST_DATABASE_USERNAME: postgres
-      TEST_DATABASE_PASSWORD: postgres
+      TEST_DATABASE_PASSWORD: 123
       TEST_DATABASE_PORT: 5432
-      TEST_DATABASE_NAME: postgres
-      TEST_REDIS_DB_NAME: redis
+      TEST_DATABASE_NAME: test
+      # TEST_REDIS_DB_NAME: redis
       TEST_REDIS_HOST: redis
       TEST_REDIS_PORT: 6379
 
