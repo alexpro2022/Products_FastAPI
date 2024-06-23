@@ -4,9 +4,9 @@ services:
     container_name: postgres_tests
     image: postgres:15.1-alpine
     environment:
-      - POSTGRES_DB=$TEST_DATABASE_NAME
       - POSTGRES_USER=$TEST_DATABASE_USERNAME
       - POSTGRES_PASSWORD=$TEST_DATABASE_PASSWORD
+      - POSTGRES_DB=$TEST_DATABASE_NAME
     expose:
       - ${TEST_DATABASE_PORT}
     volumes:
@@ -19,11 +19,11 @@ services:
     build:
       context: ../..
       dockerfile: tests/docker/test.Dockerfile
-    command: bash -c "pytest tests -x --cov --cov-config=tests/.coveragerc"  # tests/integration_tests/test_products_auth_endpoints.py::test_get_document_returns_obj"  # tests/fixtures/test_fixtures.py::test_environment"  #     tests/integration_tests/test_products_auth_endpoints.py::test_post_with_media"  # tests/fixtures/test_utils.py::test_base64"  # tests/fixtures/test_fixtures.py::test_get_product_create_data_fixture"  tests/unit_tests/schemas/test_validators.py::test_validate_returns_crated_obj"  # 
+    command: bash -c "pytest tests --cov --cov-config=tests/.coveragerc"  # ::test_docs_basic_auth_raises"  # tests/integration_tests/test_products_auth_endpoints.py::test_get_document_returns_obj"  # tests/fixtures/test_fixtures.py::test_environment"  #     tests/integration_tests/test_products_auth_endpoints.py::test_post_with_media"  # tests/fixtures/test_utils.py::test_base64"  # tests/fixtures/test_fixtures.py::test_get_product_create_data_fixture"  tests/unit_tests/schemas/test_validators.py::test_validate_returns_crated_obj"  # 
     depends_on:
       - db_test
     env_file:
-      - ../../.env
+      - ../.env
 
   redis:
     image: redis:latest
@@ -33,4 +33,4 @@ services:
   #rabbitmq:
   #  image: rabbitmq:latest
   #  env_file:
-  #    - ../../.env
+  #    - ../.env

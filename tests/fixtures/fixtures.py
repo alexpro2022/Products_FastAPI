@@ -20,14 +20,7 @@ from app.models.products_models import ProductCategoryInDB, ProductSubCategoryIn
 from app.schemas.products_schemas import ProductCreate
 from app.services.seller_products import Service
 from tests import crud
-from tests.mocks import (
-    S3_BUCKET_PRIVATE,
-    S3_BUCKET_PUBLIC,
-    SELLER_ID,
-    MockSellerCheck,
-    mock_s3_client,
-    override_sessions,
-)
+from tests.mocks import SELLER_ID, MockSellerCheck, mock_s3_client, override_sessions
 from tests.settings import settings as test_settings
 
 from . import data as d
@@ -159,8 +152,6 @@ def get_product_update_data() -> dict[str, Any]:
 
 @pytest.fixture
 def patch_s3(monkeypatch) -> None:
-    app_settings.s3_settings.bucket_private = S3_BUCKET_PRIVATE
-    app_settings.s3_settings.bucket_public = S3_BUCKET_PUBLIC
     monkeypatch.setattr("boto3.client", mock_s3_client)
 
 

@@ -1,8 +1,10 @@
 import pytest
+from fastapi import status
 from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2AuthorizationCodeBearer
 
 from app.api.setup import docs_basic_auth, get_oauth2_scheme
+from app.core.config import settings
 from tests.mocks import MockAuth
 from tests.utils import check_exception_info
 
@@ -22,8 +24,8 @@ def test_docs_basic_auth_returns_None(monkeypatch) -> None:
 @pytest.mark.parametrize(
     "auth, status_code",
     (
-        (None, 401),
-        (MockAuth(), 403),
+        (None, status.HTTP_401_UNAUTHORIZED),
+        (MockAuth(), status.HTTP_403_FORBIDDEN),
     ),
 )
 def test_docs_basic_auth_raises(auth, status_code) -> None:

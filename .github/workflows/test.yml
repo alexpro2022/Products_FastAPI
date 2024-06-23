@@ -16,9 +16,9 @@ jobs:
         ports:
           - 5432:5432
         env:
-          POSTGRES_DB: github_actions
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgrespw
+          POSTGRES_DB: test
 
       redis:
         image: redis:latest
@@ -27,12 +27,15 @@ jobs:
 
     env:
       APP_IS_DEBUG: False
+      APP_DOCS_USERNAME: username
+      APP_DOCS_PASSWORD: password
+      S3_BUCKET_PRIVATE: 48111b17-04a3c7f0-aaaa-bbbb-cccc-5294c1332fef
+      S3_BUCKET_PUBLIC: 48111b17-8a18978c-aaaa-bbbb-cccc-3d47d3e3cc72
       TEST_DATABASE_USERNAME: postgres
       TEST_DATABASE_PASSWORD: postgrespw
       TEST_DATABASE_HOST: "0.0.0.0"
       TEST_DATABASE_PORT: 5432
-      TEST_DATABASE_NAME: github_actions
-      # TEST_REDIS_DB_NAME: redis
+      TEST_DATABASE_NAME: test
       TEST_REDIS_HOST: "0.0.0.0"
       TEST_REDIS_PORT: 6379
 
