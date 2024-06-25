@@ -33,6 +33,27 @@ class GenderType(str, Enum):
     female = "Женский"
 
 
+class ProductStatusForChange(str, Enum):
+    """Статусы товара, доступные к изменению продавцом самостоятельно"""
+
+    on_sale = "Продаётся"
+    not_for_sale = "Снят с продажи"
+    on_moderation = "На модерации"
+    deleted = "Удалён"
+
+
+class ProductStatus(str, Enum):
+    """Полный набор статусов товара"""
+
+    on_sale = "Продаётся"
+    not_for_sale = "Снят с продажи"
+    on_moderation = "На модерации"
+    new = "Новый"
+    ready_for_sale = "Готов к продаже"
+    needs_fix = "Требуется доработка"
+    deleted = "Удалён"
+
+
 class ProductImageInDB(IDMixin, TimestampsMixin, table=True):
     """Изображение товара в БД"""
 
@@ -130,10 +151,10 @@ class ProductPriceInDB(IDMixin, TimestampsMixin, table=True):
         sa_relationship=RelationshipProperty(back_populates="price", uselist=False, single_parent=True),
     )
     price_with_discount: float = Field(
-        description="Цена товара c учётом скидки (конечная цена), руб.", sa_column=Column(Float, nullable=False)
+        description="Цена товара (c учётом скидки, конечная цена), руб.", sa_column=Column(Float, nullable=False)
     )
     price_without_discount: float | None = Field(
-        description="Цена товара без учёта скидки, руб.", default=None, sa_column=Column(Float, nullable=True)
+        description="Цена товара до скидки, руб.", default=None, sa_column=Column(Float, nullable=True)
     )
     vat: ValueAddedTax = Field(
         description="Размер НДС",

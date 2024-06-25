@@ -8,10 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.fields_extensions_models import ProductBrandInDB, ProductColorInDB, ProductSizeInDB
 from app.models.products_models import ProductCategoryInDB, ProductInDB, ProductSubCategoryInDB
+from app.services.seller_products import Service
 from tests.mocks import SELLER_ID
 from tests.utils import check_obj, is_base64, is_db_populated
 
 from . import data as d
+from .fixtures import RabbitMQ
 
 
 async def test_provided_loop_is_running_loop(event_loop: asyncio.AbstractEventLoop) -> None:
@@ -31,6 +33,17 @@ async def test_get_redis_fixture(get_test_redis: Redis) -> None:
         assert cache.decode("utf-8") == str(value)
     assert await get_test_redis.delete("key")
     assert await get_test_redis.get("key") is None
+
+
+def test_get_rabbit(get_test_rabbit: RabbitMQ) -> None:
+    assert isinstance(get_test_rabbit, RabbitMQ)
+
+
+def test_get_service_depenedencies_fixture(get_service_dependencies) -> None:
+    session, cache, rabbit = get_service_dependencies
+    assert isinstance(session, AsyncSession)
+    assert isinstance(cache, Redis)
+    assert isinstance(rabbit, RabbitMQ)
 
 
 def test_async_client_unauthorized_fixture(async_client_unauthorized: AsyncGenerator[AsyncClient, Any]) -> None:
@@ -72,6 +85,7 @@ def test_get_product_create_data_fixture(get_product_create_data) -> None:
         ("subcategory_id", UUID),
         #
         ("gender", str),
+        ("status", str),
         ("country_of_manufacture", str),
         ("name", str),
         ("vendor_code", str),
@@ -108,3 +122,7 @@ async def test_get_product_fixture(get_product: ProductInDB, get_test_session, g
     assert get_product.seller_id == SELLER_ID
     await check_obj(get_product, ProductInDB, get_test_session, get_product_create_data)
     assert await is_db_populated(get_test_session)
+
+
+def test_get_service_fixture(get_service) -> None:
+    assert isinstance(get_service, Service)

@@ -17,6 +17,7 @@ from app.db import create_schema
 from app.main import app
 from app.models.fields_extensions_models import ProductBrandInDB, ProductColorInDB, ProductSizeInDB
 from app.models.products_models import ProductCategoryInDB, ProductSubCategoryInDB
+from app.mq.rabbitmq import RabbitMQ
 from app.schemas.products_schemas import ProductCreate
 from app.services.seller_products import Service
 from tests import crud
@@ -57,10 +58,20 @@ async def get_test_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest_asyncio.fixture
-async def get_test_redis():
+async def get_test_redis() -> AsyncGenerator[Redis, None]:
     async with Redis.from_url(url=test_settings.redis_dsn, encoding="utf-8") as redis:
         yield redis.client()
     await redis.flushall()
+
+
+@pytest.fixture
+def get_test_rabbit():
+    yield RabbitMQ()
+
+
+@pytest.fixture
+def get_service_dependencies(get_test_session, get_test_redis, get_test_rabbit) -> Generator[tuple, Any, None]:
+    yield get_test_session, get_test_redis, get_test_rabbit
 
 
 @pytest_asyncio.fixture
@@ -120,6 +131,7 @@ def get_product_create_data(patch_s3, get_brand, get_color, get_size, get_subcat
     return {
         "gender": "Женский",
         "barcode": 987654321,
+        "status": "Новый",
         #
         "brand_id": get_brand.id,
         "color_id": get_color.id,
@@ -155,7 +167,11 @@ def patch_s3(monkeypatch) -> None:
     monkeypatch.setattr("boto3.client", mock_s3_client)
 
 
+@pytest.fixture
+def get_service(get_service_dependencies):
+    return Service(*get_service_dependencies)
+
+
 @pytest_asyncio.fixture
-async def get_product(get_test_session, get_test_redis, get_product_create_data):
-    create_data = jsonable_encoder(get_product_create_data)
-    return await Service(get_test_session, get_test_redis).create_product(SELLER_ID, ProductCreate(**create_data))
+async def get_product(get_service: Service, get_product_create_data):
+    return await get_service.create_product(SELLER_ID, ProductCreate(**jsonable_encoder(get_product_create_data)))

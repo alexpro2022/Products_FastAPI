@@ -170,14 +170,15 @@ class MQSettings(Base):
     host: str = "0.0.0.0"
     username: str | None = None
     password: str | None = None
+    exchange_name: str | None = None
     model_config = SettingsConfigDict(env_prefix="MQ_")
 
 
 class ECOMSettings(Base):
     auth_url: str = "https://auth.sarawan.ru/api/v1/users/check-token"
-    seller_check_url: str = "container link"
-    search_service_url: str = "https://elastic.sarawan.ru/price"
-    base_share_url: str = "https://prod.sarawan.ru/shopping_list/api/v1/share"
+    seller_check_url: str = ""
+    seller_data_url: str = ""
+    product_storage_amount_url: str = ""
     model_config = SettingsConfigDict(env_prefix="ECOM_")
 
 

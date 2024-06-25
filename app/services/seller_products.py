@@ -5,6 +5,7 @@ from posixpath import join
 from typing import Any
 from uuid import UUID, uuid4
 
+import orjson
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, HTTPException, Response, status
 from fastapi.encoders import jsonable_encoder
@@ -28,11 +29,22 @@ from app.models.fields_extensions_models import (
     ProductPackInDB,
     ProductPriceInDB,
     ProductSizeInDB,
+    ProductStatus,
+    ProductStatusForChange,
 )
 from app.models.products_models import ProductCategoryInDB, ProductInDB, ProductSubCategoryInDB
 from app.models.requests import RequestInfo
-from app.schemas.fields_extensions_schemas import FileObject
-from app.schemas.products_schemas import ProductCreate, ProductPagination, ProductRead, ProductUpdate, ReadProductName
+from app.mq import get_rabbitmq
+from app.mq.rabbitmq import RabbitMQ
+from app.schemas.fields_extensions_schemas import FileObject, ProductStorageQuantity, SellerData
+from app.schemas.products_schemas import (
+    ProductCreate,
+    ProductForElastic,
+    ProductPagination,
+    ProductRead,
+    ProductUpdate,
+    ReadProductName,
+)
 from app.services.base import Base
 
 load_dotenv()
@@ -42,15 +54,8 @@ LinkFields = tuple[tuple[str, SQLModel, UUID | None]]
 
 
 class Service(Base):
-    def __init__(
-        self,
-        session: AsyncSession,
-        cache: Cache,
-    ) -> None:
-        super().__init__(
-            session=session,
-            cache=cache,
-        )
+    def __init__(self, session: AsyncSession, cache: Cache, rabbit_mq: RabbitMQ) -> None:
+        super().__init__(session=session, cache=cache, rabbit_mq=rabbit_mq)
 
     does_not_exist_message = 'object "{}" does not exist'
 
@@ -412,7 +417,7 @@ class Service(Base):
         self,
         document_id: UUID,
         seller_id: UUID,
-    ) -> int:
+    ) -> Response:
         """Отдаёт документ по продукту."""
         document_in_db: ProductDocumentInDB = await self._get_one(
             select(ProductDocumentInDB)
@@ -522,25 +527,25 @@ class Service(Base):
 
     async def get_all_sizes(
         self,
-    ) -> dict[str, Any]:
+    ) -> list[dict[str, Any]]:
         coroutine = self._get_all(count=1, statement=select(ProductSizeInDB))
         return await self._get_data_in_cache_or_db(coroutine, "sizes")
 
     async def get_all_colors(
         self,
-    ) -> dict[str, Any]:
+    ) -> list[dict[str, Any]]:
         coroutine = self._get_all(count=1, statement=select(ProductColorInDB))
         return await self._get_data_in_cache_or_db(coroutine, "colors")
 
     async def get_all_brands(
         self,
-    ) -> dict[str, Any]:
+    ) -> list[dict[str, Any]]:
         coroutine = self._get_all(count=1, statement=select(ProductBrandInDB))
         return await self._get_data_in_cache_or_db(coroutine, "brands")
 
     async def get_all_categories_and_subcategories(
         self,
-    ) -> list[ProductCategoryInDB]:
+    ) -> list[dict[str, Any]]:
         """Получение списка категорий с подкатегориями."""
         coroutine = self._get_all(
             count=1,
@@ -659,10 +664,164 @@ class Service(Base):
         )
         return prices_in_db
 
+    async def change_product_status(
+        self, product_id: UUID, seller_id: UUID, user_token: str, product_status: ProductStatusForChange
+    ) -> Response:
+        """Изменяет статус товара и
+        отправляет массив данных о товаре в очередь RabbitMQ для сервиса ETL_Products
+        Args:
+            product_id (UUID): id товара
+            seller_id (UUID): id продавца
+            user_token (str): токен пользователя
+            product_status (ProductStatusForChange): статус товара
+        Raises:
+            HTTPException: если не прошла проверка на возможность изменения статуса
+            при текущем статусе товара
+        Returns:
+            Response: статус-код 200 (запрос выполнен)
+        """
+        product_in_db: ProductInDB = await self._get_one(
+            statement=select(ProductInDB).where(ProductInDB.id == product_id, ProductInDB.seller_id == seller_id)
+        )
+        product_in_db.is_active = False
+        match product_status, product_in_db.status:
+            case ProductStatusForChange.on_sale, ProductStatus.ready_for_sale:
+                product_info: dict[str, Any] = await self.create_product_info_for_ETL(
+                    product_in_db=product_in_db, user_token=user_token
+                )
+                await self.rabbit_mq.send_message(body=orjson.dumps(product_info), routing_key="products.updated")
+                product_in_db.status = product_status
+                product_in_db.is_active = True
+            case ProductStatusForChange.not_for_sale, ProductStatus.on_sale:
+                await self.rabbit_mq.send_message(
+                    body=orjson.dumps({"id": str(product_id), "is_active": False}), routing_key="products.updated"
+                )
+                product_in_db.status = product_status
+            case (ProductStatusForChange.on_moderation, ProductStatus.new | ProductStatus.needs_fix):
+                product_in_db.status = product_status
+            case ProductStatusForChange.deleted, ProductStatus.on_sale:
+                await self.rabbit_mq.send_message(
+                    body=orjson.dumps({"id": str(product_id), "is_active": False}), routing_key="products.updated"
+                )
+                product_in_db.status = product_status
+            case (
+                ProductStatusForChange.deleted,
+                ProductStatus.new
+                | ProductStatus.on_moderation
+                | ProductStatus.ready_for_sale
+                | ProductStatus.needs_fix
+                | ProductStatus.not_for_sale,
+            ):
+                product_in_db.status = product_status
+            case _:
+                raise HTTPException(
+                    status_code=status.HTTP_406_NOT_ACCEPTABLE,
+                    detail=(
+                        "Невозможно установить данный статус при текущем статусе продукта"
+                        f" ({product_in_db.status.value})"
+                    ),
+                )
+
+        self.session.add(product_in_db)
+        await self.session.commit()
+        await self.session.refresh(product_in_db)
+        return Response()
+
+    async def _get_seller_data(self, user_token: str) -> dict[str, Any]:
+        """Получет данные о продавце от сервиса личного кабинета продавца (Sellers)
+        Args:
+            user_token (str): токен пользователя
+        Raises:
+            HTTPException: при невалидности полученных данных
+        Returns:
+           dict[str, Any]: валидные данные о продавце в json-сериализируемом формате
+        """
+        seller_data_response: dict[str, Any] = await self._get_response_from_external_service(
+            service_url=settings.ecom_settings.seller_data_url, headers={"Authorization": f"Bearer {user_token}"}
+        )
+        try:
+            seller_data: dict[str, Any] = SellerData.model_validate(
+                obj={
+                    **seller_data_response.get("registration_data"),
+                    **seller_data_response,
+                }
+            ).model_dump(mode="json")
+            return seller_data
+        except Exception as err:
+            raise HTTPException(status_code=502, detail=f"Ошибка в получении данных о продавце товара: {err}")
+
+    async def _get_product_storage_quantity(self, product_id: UUID) -> int:
+        """Получет данные о количестве товара от сервиса складов ("Storages")
+        Args:
+            product_id (UUID): id товара
+        Raises:
+            HTTPException: при невалидности полученных данных
+
+        Returns:
+            int: количество товара в штуках
+        """
+        product_storage_quantity_response: list[dict[str, Any]] = await self._get_response_from_external_service(
+            service_url=settings.ecom_settings.product_storage_amount_url, method="POST", json=[str(product_id)]
+        )
+        if not product_storage_quantity_response:
+            return 0
+        else:
+            try:
+                return ProductStorageQuantity.model_validate(product_storage_quantity_response[0]).storage_quantity
+            except Exception as err:
+                raise HTTPException(
+                    status_code=502, detail=f"Ошибка в получении данных о количестве товара на складе: {err}"
+                )
+
+    async def create_product_info_for_ETL(
+        self,
+        product_in_db: ProductInDB,
+        user_token: str,
+    ) -> dict[str, Any]:
+        """Создаёт массив данных о товаре для отправки в очередь RabbitMQ для сервиса ETL_Products
+
+        Args:
+            product_in_db (ProductInDB): инстанс товара из базы данных
+            user_token (str): токен пользователя
+
+        Returns:
+            dict[str, Any]: массив данных о товаре в json-сериализируемом формате
+        """
+        seller_data: dict[str, Any] = await self._get_seller_data(user_token=user_token)
+        storage_quantity_data: int = await self._get_product_storage_quantity(product_id=product_in_db.id)
+        fields_to_exclude = ["products", "created_at", "updated_at", "category_id"]
+        subcategory_in_db: ProductSubCategoryInDB = product_in_db.subcategory
+        category_in_db: ProductCategoryInDB = await self._get_one(
+            statement=select(ProductCategoryInDB).where(ProductCategoryInDB.id == subcategory_in_db.category_id)
+        )
+        product_data_schema: ProductForElastic = ProductForElastic.model_validate(product_in_db, from_attributes=True)
+        product_data_schema.is_active = True
+        product_data: dict[str, Any] = product_data_schema.model_dump(
+            exclude=[
+                "subcategory_id",
+                "status",
+                "brand_id",
+                "color_id",
+                "size_id",
+            ],
+            exclude_none=True,
+            exclude_unset=True,
+            mode="json",
+        )
+
+        product_info: dict[str, Any] = {
+            "seller": {**seller_data},
+            "storage_quantity": storage_quantity_data,
+            "category": {**category_in_db.model_dump(exclude=fields_to_exclude, mode="json")},
+            **product_data,
+        }
+        return product_info
+
 
 @lru_cache
 def get_service(
     session: AsyncSession = Depends(dependency=get_session),
     cache: Cache = Depends(dependency=get_cache),
+    rabbit_mq: RabbitMQ = Depends(dependency=get_rabbitmq),
 ) -> Service:
-    return Service(session=session, cache=cache)
+    return Service(session=session, cache=cache, rabbit_mq=rabbit_mq)

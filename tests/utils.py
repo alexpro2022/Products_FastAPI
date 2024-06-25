@@ -1,6 +1,6 @@
 import base64
+import json
 from http import HTTPStatus
-from json import dumps
 from pprint import pprint
 from typing import Any, TypeAlias
 from uuid import UUID
@@ -37,8 +37,7 @@ def info(*args, exc: bool = True) -> None:
 
 def check_exception_info(exc_info, expected_msg: str | None = None, expected_error_code: int | None = None) -> None:
     if expected_msg is not None:
-        # assert exc_info.value.args[0] == expected_msg
-        assert exc_info.value.detail == expected_msg
+        assert exc_info.value.detail == expected_msg, exc_info.value.detail
     if expected_error_code is not None:
         assert exc_info.value.status_code == expected_error_code
 
@@ -73,7 +72,7 @@ def is_valid_uuid(val) -> bool:
 
 
 def to_json(entity: dict[str, Any] | BaseModel | list[BaseModel]) -> str:
-    return dumps(jsonable_encoder(entity))
+    return json.dumps(jsonable_encoder(entity))
 
 
 def reverse(app: FastAPI, view_name: str) -> str:
@@ -88,9 +87,15 @@ def has_access(response: Response) -> bool:
 
 
 async def request_get(
-    client: AsyncClient, view_name: str, status_code: int = status.HTTP_200_OK, response_json: bool = True, **path_param
+    client: AsyncClient,
+    view_name: str,
+    status_code: int = status.HTTP_200_OK,
+    response_json: bool = True,
+    query_params: str = "",
+    **path_param,
 ) -> dict[str, Any] | Response:
     url = reverse(app, view_name).format(**path_param) if path_param else reverse(app, view_name)
+    url += query_params
     response = await client.get(url)
     assert response.status_code == status_code
     return response.json() if response_json else response
@@ -101,8 +106,9 @@ async def request_post(
     view_name: str,
     payload: Any,
     exclude: tuple[str, ...] | None = None,
+    query_params: str = "",
 ) -> dict[str, Any]:
-    url = reverse(app, view_name)
+    url = reverse(app, view_name) + query_params
     response = await client.post(url, json=jsonable_encoder(payload, exclude=exclude))
     response.raise_for_status()
     return response.json()
@@ -111,23 +117,27 @@ async def request_post(
 async def request_patch(
     client: AsyncClient,
     view_name: str,
-    payload: Any,
+    payload: Any | None = None,
     exclude: tuple[str, ...] | None = None,
     status_code: int = 200,
+    response_json: bool = True,
+    query_params: str = "",
     **path_param,
 ) -> dict[str, Any]:
-    url = reverse(app, view_name).format(**path_param)
+    url = reverse(app, view_name).format(**path_param) + query_params
     response = await client.patch(url, json=jsonable_encoder(payload, exclude=exclude))
+    # info(response.json())
     assert response.status_code == status_code
-    return response.json()
+    return response.json() if response_json else response
 
 
 def compare(left: Any, right: Any, exclude: tuple[str, ...] | None = None) -> None:
     left_json, right_json = jsonable_encoder(left, exclude=exclude), jsonable_encoder(right, exclude=exclude)
     common_keys = set(left_json.keys()) & set(right_json.keys())
+    # info(common_keys)
     assert common_keys, "Objects cannot be compared"
     for key in common_keys:
-        assert left_json[key] == right_json[key], key
+        assert left_json[key] == right_json[key], (key, left_json[key], right_json[key])
 
 
 async def check_response_json(

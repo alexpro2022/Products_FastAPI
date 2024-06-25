@@ -6,7 +6,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Respons
 from app.core.config import settings
 from app.middlewares.auth import SellerCheck
 from app.middlewares.request_info import set_request_info
-from app.models.products_models import ProductInDB, ProductPriceInDB
+from app.models.fields_extensions_models import ProductStatusForChange
+from app.models.products_models import (
+    ProductBrandInDB,
+    ProductCategoryInDB,
+    ProductColorInDB,
+    ProductInDB,
+    ProductPriceInDB,
+    ProductSizeInDB,
+)
 from app.schemas.categories_schemas import ProductCategory
 from app.schemas.fields_extensions_schemas import ProductBrand, ProductColor, ProductPrice, ProductSize
 from app.schemas.products_schemas import (
@@ -309,4 +317,29 @@ async def get_products_prices(
 ) -> list[ProductPriceInDB]:
     return await service.get_products_prices(
         product_ids=product_ids,
+    )
+
+
+@router.patch(
+    path="/products/change-status/{product_id}",
+    status_code=status.HTTP_200_OK,
+    name="product:change_status",
+    tags=["Товар продавца"],
+    summary="Товар продавца: изменить статус",
+    operation_id="product:change_status",
+    dependencies=[
+        Depends(seller_check),
+    ],
+)
+async def change_product_status(
+    product_id: UUID,
+    product_status: ProductStatusForChange,
+    request: Request,
+    service: Service = Depends(dependency=get_service),
+):
+    return await service.change_product_status(
+        seller_id=getattr(request, "seller_id"),
+        user_token=getattr(request, "user_token"),
+        product_id=product_id,
+        product_status=product_status,
     )

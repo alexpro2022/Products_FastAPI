@@ -125,6 +125,7 @@ class SellerCheck(HTTPBearer):
             request,
         )
         setattr(request, "seller_id", None)
+        setattr(request, "user_token", None)
         if credentials:
             if not credentials.scheme == "Bearer":
                 raise HTTPException(
@@ -158,6 +159,7 @@ class SellerCheck(HTTPBearer):
                     raise Exception(error_detail)
                 seller_id: str | None = response.json()
                 setattr(request, "seller_id", seller_id)
+                setattr(request, "user_token", token)
             return True
         except Exception as err:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Ошибка проверки токена: {err}")

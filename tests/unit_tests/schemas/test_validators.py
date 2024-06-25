@@ -87,9 +87,7 @@ def test_validate_raises_exc(klass, invalid_value, err_msg):
         klass.validate(invalid_value, "handler")
 
 
-async def test_order_num_validator(get_test_session, get_test_redis, get_product_create_data) -> None:
+async def test_order_num_validator(get_service_dependencies, get_product_create_data) -> None:
     get_product_create_data["images"][0]["order_num"] = 1
     with pytest.raises(HTTPException, match="incorrect image order"):
-        await Service(get_test_session, get_test_redis).create_product(
-            SELLER_ID, ProductCreate(**get_product_create_data)
-        )
+        await Service(*get_service_dependencies).create_product(SELLER_ID, ProductCreate(**get_product_create_data))

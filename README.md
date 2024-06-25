@@ -1,3 +1,8 @@
+# MP_FastAPI_Products
+
+[![Run pytest](https://github.com/Salfa-marketplace/MP_FastAPI_Products/actions/workflows/test.yml/badge.svg)](https://github.com/Salfa-marketplace/MP_FastAPI_Products/actions/workflows/test.yml)
+
+
 <div align="center">
   <h1>MP_FastAPI_Products</h1>
 </div>

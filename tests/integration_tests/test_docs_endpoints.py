@@ -14,7 +14,7 @@ def check_definition(response: Response) -> None:
 
 
 def check_docs(response: Response) -> None:
-    # response contains a HTML content (not a JSON)
+    # response contains HTML content (not a JSON)
     assert b"swagger-ui" in response._content
 
 

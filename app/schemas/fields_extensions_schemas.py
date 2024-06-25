@@ -316,9 +316,8 @@ class ProductPriceBase(BaseModel):
     price_without_discount: float | None = Field(
         default=None,
         gt=0,
-        description="Цена товара без учета скидки, руб.",
+        description="Цена товара до скидки, руб.",
     )
-
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -337,7 +336,7 @@ class ProductPrice(ProductPriceBase):
 
     price_with_discount: float = Field(
         gt=0,
-        description="Цена товара c учётом скидки, руб.",
+        description="Цена товара (c учётом скидки, окончательная цена), руб.",
     )
     vat: ValueAddedTax = Field(
         description="Размер НДС",
@@ -350,7 +349,7 @@ class ProductPriceUpdate(ProductPriceBase):
     price_with_discount: float | None = Field(
         default=None,
         gt=0,
-        description="Цена товара c учётом скидки, руб.",
+        description="Цена товара (c учётом скидки, окончательная цена), руб.",
     )
     vat: ValueAddedTax | None = Field(
         default=None,
@@ -414,4 +413,37 @@ class ProductBrand(BaseModel):
     model_config = {
         "title": "Получение брендов",
         "json_schema_extra": {"examples": [{"id": str(uuid4()), "name": "Antonio Banderas"}]},
+    }
+
+
+class SellerData(BaseModel):
+    id: UUID = Field(description="ID продавца")
+    brand_name: str = Field(description="Название бренда")
+    legal_name: str = Field(description="Юридическое название")
+    is_active: bool = Field(description="Статус активности продавца")
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "id": str(uuid4()),
+                    "brand_name": "Мир посуды",
+                    "legal_name": "ИП Иванов И.И.",
+                    "is_active": True,
+                }
+            ]
+        }
+    }
+
+
+class ProductStorageQuantity(BaseModel):
+    product_id: UUID = Field(description="ID товара")
+    storage_quantity: int = Field(description="Количество товара на складе")
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "storage_quantity": 10,
+                }
+            ]
+        }
     }

@@ -3,9 +3,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.fields_extensions_models import GenderType
+from app.models.fields_extensions_models import GenderType, ProductStatus
 from app.schemas.base import PaginationBase
+from app.schemas.categories_schemas import ProductSubCategory
 from app.schemas.fields_extensions_schemas import (
+    ProductBrand,
+    ProductColor,
     ProductDocument,
     ProductDocumentCreate,
     ProductDocumentUpdate,
@@ -19,6 +22,7 @@ from app.schemas.fields_extensions_schemas import (
     ProductPackUpdate,
     ProductPrice,
     ProductPriceUpdate,
+    ProductSize,
 )
 
 
@@ -101,8 +105,8 @@ class ProductCreate(ProductBase):
                     "size_id": str(uuid4()),
                     "brand_id": str(uuid4()),
                     "price": ProductPrice.model_json_schema()["examples"][0],
-                    "images": ProductImageCreate.model_json_schema()["examples"],  # [0],
-                    "documents": ProductDocumentCreate.model_json_schema()["examples"],  # [0],
+                    "images": [ProductImageCreate.model_json_schema()["examples"][0]],
+                    "documents": [ProductDocumentCreate.model_json_schema()["examples"][0]],
                 }
             ]
         },
@@ -118,6 +122,7 @@ class ProductReadNotСonfidential(ProductBase):
     is_active: bool = Field(
         description="Активность товара",
     )
+    status: ProductStatus = Field(default=ProductStatus.new, description="Статус товара")
     name_slug: str = Field(
         max_length=255,
         description="URL товара",
@@ -133,6 +138,7 @@ class ProductReadNotСonfidential(ProductBase):
                 {
                     "id": str(uuid4()),
                     "is_active": False,
+                    "status": ProductStatus.new,
                     "name": "Платье повседневное мини оверсайз",
                     "name_slug": f"Платье повседневное мини оверсайз-{str(uuid4())}",
                     "country_of_manufacture": "КНР",
@@ -149,6 +155,30 @@ class ProductReadNotСonfidential(ProductBase):
                     "brand_id": str(uuid4()),
                     "price": ProductPrice.model_json_schema()["examples"][0],
                     "images": [ProductImage.model_json_schema()["examples"][0]],
+                }
+            ]
+        },
+    }
+
+
+class ProductForElastic(ProductReadNotСonfidential):
+    """Схема товара для отправки в Elastic Search"""
+
+    size: ProductSize | None
+    brand: ProductBrand | None
+    color: ProductColor | None
+    subcategory: ProductSubCategory
+
+    model_config = {
+        "title": "Информация о товаре для отправки в Elastic Search",
+        "json_schema_extra": {
+            "examples": [
+                {
+                    **ProductReadNotСonfidential.model_json_schema()["examples"][0],
+                    "size": ProductSize.model_json_schema()["examples"][0],
+                    "brand": ProductBrand.model_json_schema()["examples"][0],
+                    "color": ProductColor.model_json_schema()["examples"][0],
+                    "subcategory": ProductSubCategory.model_json_schema()["examples"][0],
                 }
             ]
         },
@@ -174,6 +204,7 @@ class ProductRead(ProductReadNotСonfidential):
                 {
                     "id": str(uuid4()),
                     "is_active": False,
+                    "status": ProductStatus.new,
                     "name": "Платье повседневное мини оверсайз",
                     "name_slug": f"Платье повседневное мини оверсайз-{str(uuid4())}",
                     "country_of_manufacture": "КНР",

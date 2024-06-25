@@ -10,6 +10,8 @@ import boto3
 from backoff import expo, on_exception
 from fastapi import HTTPException, status
 from httpx import AsyncClient
+from httpx import Request as httpx_Request
+from httpx import Response as httpx_Response
 from sqlalchemy.engine import Result
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
@@ -18,6 +20,7 @@ from sqlmodel.sql.expression import SelectOfScalar
 
 from app.cache import Cache
 from app.core.config import settings
+from app.mq.rabbitmq import RabbitMQ
 from app.schemas.fields_extensions_schemas import FileObject
 
 
@@ -26,13 +29,65 @@ class Base(ABC):
         self,
         session: AsyncSession,
         cache: Cache,
+        rabbit_mq: RabbitMQ,
     ) -> None:
         self.session: AsyncSession = session
         self.cache: Cache = cache
+        self.rabbit_mq: RabbitMQ = rabbit_mq
 
     @property
     def client(self) -> AsyncClient:
         return AsyncClient()
+
+    async def _get_response_from_external_service(
+        self,
+        service_url: str,
+        method="GET",
+        json: dict[Any, Any] | list[Any] = None,
+        headers: str = None,
+    ) -> dict[str, Any]:
+        """Совершает запрос к внешнему сервису,
+        получает от него данные в виде json и
+        преобразует их в соответветствующий тип данных Python
+
+        Args:
+            service_url (str): URL внешнего сервиса
+            method (str, optional): метод http-запроса. Defaults to "GET".
+            json (dict[Any, Any] | list[Any], optional): body-параметры в виде json. Defaults to None.
+            headers (str, optional): http-headers, например, параметры для авторизации. Defaults to None.
+
+        Raises:
+            HTTPException: в случае ошибки получения данных от внешнего сервиса
+
+        Returns:
+            Any: ответ от внешнего сервиса в виде json, преобразованный в соответвтвующий тип данных Python
+        """
+        async with self.client as client:
+            try:
+                response: httpx_Response = await client.send(
+                    request=httpx_Request(
+                        url=service_url,
+                        method=method,
+                        headers=headers,
+                        json=json,
+                    )
+                )
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Ошибка в получении данных от внешнего сервиса ({service_url}): {str(exc)}",
+                )
+
+            if not response.is_success:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=(
+                        f"Ошибка в получении данных от внешнего сервиса ({service_url}): status code"
+                        f" {response.status_code}"
+                    ),
+                )
+
+            return response.json()
 
     @on_exception(wait_gen=expo, exception=Exception, max_tries=5, backoff_log_level=ERROR)
     async def _get_count(
@@ -264,7 +319,7 @@ class Base(ABC):
             return json.loads(cache_data)
         db_data = await coroutine
         cache_data = self._list_data_db_conversion(db_data, relationships)
-        await self.cache.set_value(cache_key, json.dumps(cache_data))
+        await self.cache.set_value(cache_key, json.dumps(cache_data, ensure_ascii=False).encode("utf8"))
         return cache_data
 
     @property

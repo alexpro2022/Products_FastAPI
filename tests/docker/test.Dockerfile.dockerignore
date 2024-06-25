@@ -1,6 +1,5 @@
 *
 !app
 !tests
-!.coveragerc
 !poetry.lock
 !pyproject.toml

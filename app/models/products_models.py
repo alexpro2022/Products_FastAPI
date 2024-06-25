@@ -20,6 +20,7 @@ from app.models.fields_extensions_models import (
     ProductPackInDB,
     ProductPriceInDB,
     ProductSizeInDB,
+    ProductStatus,
 )
 
 
@@ -104,9 +105,18 @@ class ProductInDB(IDMixin, TimestampsMixin, table=True):
             nullable=True,
         ),
     )
-    is_active: bool = Field(
-        description="Активность товара (true - после прохождения модерации)",
-        sa_column=Column(Boolean, default=False, nullable=False),
+    is_active: bool = Field(description="Активность товара", sa_column=Column(Boolean, default=False, nullable=False))
+    status: ProductStatus = Field(
+        default=ProductStatus.new,
+        description="Статус товара",
+        sa_column=Column(
+            psEnum(
+                ProductStatus,
+                name="product_status_enum",
+                schema=metadata.schema,
+            ),
+            nullable=False,
+        ),
     )
     name: str = Field(description="Наименование товара", sa_column=Column(String(128), nullable=False, index=True))
     name_slug: str = Field(

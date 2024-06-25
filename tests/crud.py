@@ -1,13 +1,14 @@
 from typing import Any, TypeAlias
 from uuid import UUID
 
+# from sqlalchemy import Insert, Select, Update, delete, insert, select, update
+import sqlalchemy as sa
 from fastapi import HTTPException, status
-from sqlalchemy import Insert, Select, Update, delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 IdType: TypeAlias = int | UUID
 ModelType: TypeAlias = Any
-StmtType: TypeAlias = Insert | Select | Update
+StmtType: TypeAlias = sa.Insert | sa.Select | sa.Update
 
 MSG_OBJECT_NOT_FOUND = "Объект не найден"
 
@@ -19,17 +20,17 @@ async def fetch_one(session: AsyncSession, stmt: StmtType):
 
 
 async def create(session: AsyncSession, model: ModelType, **create_data) -> ModelType:
-    stmt = insert(model).values(**create_data).returning(model)
+    stmt = sa.insert(model).values(**create_data).returning(model)
     return await fetch_one(session, stmt)
 
 
-async def update_(session: AsyncSession, model: ModelType, id: IdType, **update_data) -> ModelType:
-    stmt = update(model).where(model.id == id).values(**update_data).returning(model)
+async def update(session: AsyncSession, model: ModelType, id: IdType, **update_data) -> ModelType:
+    stmt = sa.update(model).where(model.id == id).values(**update_data).returning(model)
     return await fetch_one(session, stmt)
 
 
-async def delete_(session: AsyncSession, model: ModelType, id: IdType, **update_data) -> ModelType:
-    stmt = delete(model).where(model.id == id).returning(model)
+async def delete(session: AsyncSession, model: ModelType, id: IdType, **update_data) -> ModelType:
+    stmt = sa.delete(model).where(model.id == id).returning(model)
     return await fetch_one(session, stmt)
 
 
@@ -41,7 +42,7 @@ async def get(
     fetch_one: bool = False,
     **filter_data,
 ) -> ModelType | list[ModelType]:
-    stmt = select(model).filter_by(**filter_data)
+    stmt = sa.select(model).filter_by(**filter_data)
     result = await session.scalars(stmt)
     res = result.first() if filter_data.get("id") or fetch_one else result.all()
     if not res and exception:
