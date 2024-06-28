@@ -9,7 +9,7 @@ from app.models.fields_extensions_models import ProductStatus, ProductStatusForC
 from app.models.products_models import ProductInDB
 from tests import crud, mocks
 from tests.mocks import S3_IMAGE, UUID_ID
-from tests.utils import check_response_json, compare, info, request_get, request_patch, request_post, reverse
+from tests.utils import check_response_json, compare, request_get, request_patch, request_post, reverse
 
 
 @pytest.mark.parametrize(
@@ -23,7 +23,7 @@ from tests.utils import check_response_json, compare, info, request_get, request
         ("product:change_status", "patch"),
     ),
 )
-async def test_anon_has_no_access(async_client_unauthorized: AsyncClient, view_name: str, method: str) -> None:
+async def test__anon_has_no_access(async_client_unauthorized: AsyncClient, view_name: str, method: str) -> None:
     url = reverse(app, view_name)
     response = await getattr(async_client_unauthorized, method)(url)
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -39,7 +39,7 @@ async def test_anon_has_no_access(async_client_unauthorized: AsyncClient, view_n
         ("product:change_status", "patch", "product_id", "?product_status=Продаётся"),
     ),
 )
-async def test_get_returns_not_found(
+async def test__not_found(
     async_client_authorized: AsyncClient, view_name: str, method: str, path_param_name: str, query_param: str
 ) -> None:
     url = reverse(app, view_name).format(**{path_param_name: UUID_ID}) + query_param
@@ -49,13 +49,13 @@ async def test_get_returns_not_found(
     assert response.json() == {"detail": "Not Found"}
 
 
-async def test_get_all_products_returns_empty_list(async_client_authorized: AsyncClient) -> None:
+async def test__get_all_products__returns_empty_list(async_client_authorized: AsyncClient) -> None:
     response_json = await request_get(async_client_authorized, view_name="product:get_all")
     expected = {"page": 1, "size": 10, "totalCount": 0, "totalPages": 1, "results": []}
     assert response_json == expected
 
 
-async def test_get_all_products_returns_objs_list(
+async def test__get_all_products__returns_objs_list(
     async_client_authorized: AsyncClient,
     get_product: ProductInDB,
 ) -> None:
@@ -66,8 +66,9 @@ async def test_get_all_products_returns_objs_list(
         compare(result, get_product)
 
 
-async def test_get_product_name_by_id_returns_obj(
-    async_client_authorized: AsyncClient, get_product: ProductInDB
+async def test__get_product_name_by_id__returns_obj(
+    async_client_authorized: AsyncClient,
+    get_product: ProductInDB,
 ) -> None:
     response_json = await request_get(
         async_client_authorized,
@@ -77,7 +78,7 @@ async def test_get_product_name_by_id_returns_obj(
     compare(response_json, get_product)
 
 
-async def test_get_document_returns_obj(async_client_authorized: AsyncClient, get_product: ProductInDB) -> None:
+async def test__get_document__returns_obj(async_client_authorized: AsyncClient, get_product: ProductInDB) -> None:
     document = get_product.documents[0]
     response = await request_get(
         async_client_authorized,
@@ -88,7 +89,9 @@ async def test_get_document_returns_obj(async_client_authorized: AsyncClient, ge
     assert base64.b64decode(response._content) == S3_IMAGE
 
 
-async def test_create_product_without_media(async_client_authorized, get_product_create_data, get_test_session) -> None:
+async def test__create_product__without_media(
+    async_client_authorized, get_product_create_data, get_test_session
+) -> None:
     exclude = ("images", "documents")
     response_json = await request_post(
         async_client_authorized,
@@ -99,7 +102,7 @@ async def test_create_product_without_media(async_client_authorized, get_product
     await check_response_json(response_json, get_test_session, ProductInDB, get_product_create_data, exclude=exclude)
 
 
-async def test_create_product_with_media(async_client_authorized, get_product_create_data, get_test_session) -> None:
+async def test__create_product__with_media(async_client_authorized, get_product_create_data, get_test_session) -> None:
     response_json = await request_post(
         async_client_authorized,
         view_name="product:create",
@@ -108,8 +111,11 @@ async def test_create_product_with_media(async_client_authorized, get_product_cr
     await check_response_json(response_json, get_test_session, ProductInDB)
 
 
-async def test_update_product(
-    async_client_authorized: AsyncClient, get_product, get_product_update_data, get_test_session
+async def test__update_product(
+    async_client_authorized: AsyncClient,
+    get_product,
+    get_product_update_data,
+    get_test_session,
 ) -> None:
     response_json = await request_patch(
         async_client_authorized,
@@ -120,7 +126,7 @@ async def test_update_product(
     await check_response_json(response_json, get_test_session, ProductInDB, get_product_update_data)
 
 
-async def test_change_product_status_returns_422(monkeypatch, async_client_authorized):
+async def test__change_product_status__returns_422(monkeypatch, async_client_authorized):
     monkeypatch.setattr("app.services.seller_products.Service", mocks.MockServiceETL)
     response_json = await request_patch(
         async_client_authorized,
@@ -134,7 +140,7 @@ async def test_change_product_status_returns_422(monkeypatch, async_client_autho
     )
 
 
-async def test_change_product_status_returns_406(async_client_authorized: AsyncClient, get_product) -> None:
+async def test__change_product_status__returns_406(async_client_authorized: AsyncClient, get_product) -> None:
     response_json = await request_patch(
         async_client_authorized,
         view_name="product:change_status",
@@ -160,8 +166,14 @@ async def test_change_product_status_returns_406(async_client_authorized: AsyncC
         (ProductStatus.not_for_sale, ProductStatusForChange.deleted, False),
     ),
 )
-async def test_change_product_status_changes_product_in_db(
-    monkeypatch, async_client_authorized, get_test_session, get_product, current_status, new_status, is_active
+async def test__change_product_status__changes_product_in_db(
+    monkeypatch,
+    async_client_authorized,
+    get_test_session,
+    get_product,
+    current_status,
+    new_status,
+    is_active,
 ) -> None:
     monkeypatch.setattr("app.services.seller_products.Service", mocks.MockServiceETL)
     await crud.update(

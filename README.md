@@ -104,8 +104,8 @@ poetry run uvicorn app.main:app --reload --host=0.0.0.0 --port=5051
 ## Запуск тестов:
 Из корневой директории проекта выполните команду запуска тестов:
 ```bash
-docker compose -f tests/docker/test.docker-compose.yml --env-file tests/.env up --build --abort-on-container-exit && \
-docker compose -f tests/docker/test.docker-compose.yml --env-file tests/.env down -v && \
-docker system prune -f
+docker compose -f tests/docker/test.docker-compose.yml --env-file tests/env_test up --build --abort-on-container-exit && \
+docker compose -f tests/docker/test.docker-compose.yml --env-file tests/env_test down -v && \
+docker rmi test_run
 ```
 После прохождения тестов в консоль будет выведен отчет pytest и coverage.

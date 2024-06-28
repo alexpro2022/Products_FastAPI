@@ -112,8 +112,7 @@ def mock_s3_client(*args, **kwargs) -> None:
 
 class MockServiceRabbitAPI(Service):
     def __init__(self, session: AsyncSession, cache: Cache, rabbit_mq: RabbitMQ) -> None:
-        super().__init__(session, cache, rabbit_mq)
-        self.rabbit_mq = MockRabbitMQ()
+        super().__init__(session, cache, MockRabbitMQ())
 
 
 class MockServiceETL(MockServiceRabbitAPI):

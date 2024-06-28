@@ -57,11 +57,34 @@ async def test_service_method_raises_502(get_service_dependencies, method_name, 
     check_exception_info(exc_info, expected_error_code=status.HTTP_502_BAD_GATEWAY)
 
 
-@pytest.mark.skip(reason="Do not know API spec for seller data from external service")
 async def test_get_seller_data_returns_valid_data(get_service_dependencies) -> None:
     service = m.MockServiceExternalData(*get_service_dependencies)
-    service.fake_external_data = {}  # where to see the API spec ???
-    expected = None
+    service.fake_external_data = {
+        "logo": "string",
+        "registration_data": {
+            "actual_address": "г.Новосибирск, проспект Ленина д 2к3",
+            "address_of_registration": "г.Москва,ул.Московская д 2к3 офис 9",
+            "brand_name": "Мир посуды",
+            "country_of_registration": "Российская Федерация",
+            "inn": 132808730606,
+            "legal_name": "Ип Иванов Владимир Иванович",
+            "ogrnip": 313132804400022,
+            "type_of_organization": "Индивидуальный предприниматель",
+        },
+        "passport": "string",
+        "inn": "string",
+        "documentatins": "string",
+        "messages": [{"is_active": True, "message": "message"}],
+        "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "user_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "is_active": True,
+    }
+    expected = {
+        "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "brand_name": "Мир посуды",
+        "legal_name": "Ип Иванов Владимир Иванович",
+        "is_active": True,
+    }
     assert await service._get_seller_data(user_token="user_token") == expected
 
 
@@ -72,7 +95,7 @@ async def test_get_seller_data_returns_valid_data(get_service_dependencies) -> N
         ([{"product_id": str(m.UUID_ID), "storage_quantity": 10}], 10),
     ),
 )
-async def test_get_seller_data_returns_valid_data(get_service_dependencies, input_data, expected) -> None:
+async def test_get_product_storage_quantity_returns_valid_data(get_service_dependencies, input_data, expected) -> None:
     service = m.MockServiceExternalData(*get_service_dependencies)
     service.fake_external_data = input_data
     assert await service._get_product_storage_quantity(product_id=m.UUID_ID) == expected

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, AsyncGenerator, Generator
+from typing import Any, AsyncGenerator, Coroutine, Generator
 
 import pytest
 import pytest_asyncio
@@ -40,9 +40,8 @@ metadata = MetaData(
 )
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def event_loop() -> Generator[asyncio.AbstractEventLoop, Any, None]:
-    """Create an instance of the default event loop for each test case."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
@@ -62,6 +61,24 @@ async def get_test_redis() -> AsyncGenerator[Redis, None]:
     async with Redis.from_url(url=test_settings.redis_dsn, encoding="utf-8") as redis:
         yield redis.client()
     await redis.flushall()
+
+
+@pytest_asyncio.fixture
+async def get_cache(get_test_redis: Redis) -> Coroutine[Any, Any, list[str]]:
+    async def _(decode: bool = False) -> list[str]:
+        keys = [key.decode("utf-8") for key in await get_test_redis.keys()]
+        values = [await get_test_redis.get(key) for key in keys]
+        return [value.decode("utf-8") if decode else value for value in values]
+
+    return _
+
+
+@pytest_asyncio.fixture
+async def is_cache_empty(get_cache) -> Coroutine[Any, Any, bool]:
+    async def _() -> bool:
+        return not bool(await get_cache())
+
+    return _
 
 
 @pytest.fixture
@@ -169,9 +186,9 @@ def patch_s3(monkeypatch) -> None:
 
 @pytest.fixture
 def get_service(get_service_dependencies):
-    return Service(*get_service_dependencies)
+    yield Service(*get_service_dependencies)
 
 
 @pytest_asyncio.fixture
 async def get_product(get_service: Service, get_product_create_data):
-    return await get_service.create_product(SELLER_ID, ProductCreate(**jsonable_encoder(get_product_create_data)))
+    yield await get_service.create_product(SELLER_ID, ProductCreate(**jsonable_encoder(get_product_create_data)))

@@ -103,6 +103,7 @@ class RedisSettings(Base):
     db_name: str = "0"
     password: str | None = None
     dsn: RedisDsn | str = ""
+    expire: int = 60
 
     @field_validator("dsn", mode="before")
     @classmethod

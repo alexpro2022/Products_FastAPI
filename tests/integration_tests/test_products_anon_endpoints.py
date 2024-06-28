@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 import pytest
@@ -22,26 +23,31 @@ parametrize_get_all = pytest.mark.parametrize(
 
 
 @parametrize_get_all
-async def test_get_all_returns_empty_list(
+async def test__get_all__returns_empty_list(
     async_client_unauthorized: AsyncClient,
     view_name: str,
     expected: dict[str, Any],
+    is_cache_empty,
+    get_cache,
 ) -> None:
+    assert await is_cache_empty()
     response_json = await request_get(async_client_unauthorized, view_name)
-    expected = []
-    assert response_json == expected
+    assert response_json == []
+    assert not await is_cache_empty()
+    _ = await get_cache()
+    cache = json.loads(_[0])
+    assert cache == [], cache
 
 
 @parametrize_get_all
-async def test_get_all_returns_obj_list(
+async def test__get_all__returns_obj_list(
     async_client_unauthorized: AsyncClient,
     view_name: str,
     expected: dict[str, Any],
     get_product: ProductInDB,
 ) -> None:
     response_json = await request_get(async_client_unauthorized, view_name)
-    expected["id"] = response_json[0]["id"]
-    assert response_json == [expected]
+    compare(response_json, [expected])
 
 
 async def test_get_product_by_name_slug_returns_not_found(async_client_unauthorized: AsyncClient) -> None:
@@ -51,12 +57,12 @@ async def test_get_product_by_name_slug_returns_not_found(async_client_unauthori
         status_code=status.HTTP_404_NOT_FOUND,
         product_slug="test_slug",
     )
-    expected = {"detail": "Not Found"}
-    assert response_json == expected
+    assert response_json == {"detail": "Not Found"}
 
 
-async def test_get_product_by_name_slug_returns_obj(
-    async_client_unauthorized: AsyncClient, get_product: ProductInDB
+async def test__get_product_by_name_slug__returns_obj(
+    async_client_unauthorized: AsyncClient,
+    get_product: ProductInDB,
 ) -> None:
     response_json = await request_get(
         async_client_unauthorized,
@@ -76,17 +82,16 @@ parametrize_post = pytest.mark.parametrize(
 
 
 @parametrize_post
-async def test_post_returns_empty_list(
+async def test__post__returns_empty_list(
     async_client_unauthorized: AsyncClient,
     view_name: str,
 ) -> None:
     response_json = await request_post(async_client_unauthorized, view_name, [UUID_ID])
-    expected = []
-    assert response_json == expected
+    assert response_json == []
 
 
 @parametrize_post
-async def test_post_returns_objs_list(
+async def test__post__returns_objs_list(
     async_client_unauthorized: AsyncClient,
     view_name: str,
     get_product: ProductInDB,
@@ -97,5 +102,4 @@ async def test_post_returns_objs_list(
         if view_name == "product:get_by_ids"
         else {"price_without_discount": 119.99, "price_with_discount": 99.99, "vat": "20%"}
     )
-    for item in response_json:
-        compare(item, expected)
+    compare(response_json, [expected])

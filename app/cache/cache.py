@@ -31,7 +31,7 @@ class Cache:
         self,
         key: str,
         value: str,
-        expire: int = 60,
+        expire: int = settings.redis_settings.expire,
     ) -> None:
         """Установить значение в кэш."""
         await self.redis.set(

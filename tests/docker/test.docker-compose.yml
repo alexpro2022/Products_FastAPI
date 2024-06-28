@@ -19,12 +19,13 @@ services:
     build:
       context: ../..
       dockerfile: tests/docker/test.Dockerfile
+    image: test_run
     command: bash -c "pytest tests -x --cov --cov-config=tests/.coveragerc"
     depends_on:
       - db_test
       - redis
     env_file:
-      - ../.env
+      - ../env_test
 
   redis:
     image: redis:latest
